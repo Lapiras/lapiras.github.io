@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sound Replacement — Deadlock Mod Tools</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    .back { align-self: flex-start; color: #888; text-decoration: none; font-size: 0.9rem; margin-bottom: 32px; }
+    .back:hover { color: #eee; }
+    h1 { font-size: 1.6rem; margin-bottom: 32px; text-align: center; }
+
+    .form-card {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 32px;
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 8px; }
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    select {
+      background: #222;
+      border: 1px solid #444;
+      border-radius: 6px;
+      color: #eee;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      cursor: pointer;
+    }
+    select:focus { outline: none; border-color: #e84040; }
+    select:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .dropzone {
+      border: 2px dashed #444;
+      border-radius: 8px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .dropzone:hover, .dropzone.dragover { border-color: #e84040; background: #1f1818; }
+    .dropzone .upload-icon {
+      width: 48px; height: 48px;
+      border: 2px solid #555;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem;
+    }
+    .dropzone p { color: #888; font-size: 0.9rem; }
+    .dropzone .file-name { color: #e84040; font-size: 0.9rem; font-weight: 600; }
+    #file-input { display: none; }
+
+    button.generate {
+      background: #e84040;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+      letter-spacing: 0.03em;
+    }
+    button.generate:hover:not(:disabled) { background: #cc3030; }
+    button.generate:disabled { background: #444; cursor: not-allowed; }
+
+    .status { text-align: center; font-size: 0.85rem; color: #888; min-height: 20px; }
+    .status.error { color: #e84040; }
+    .status.success { color: #40c060; }
+
+    /* Instructions panel shown after generation */
+    .instructions {
+      display: none;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 28px 32px;
+      width: 100%;
+      max-width: 520px;
+      margin-top: 24px;
+    }
+    .instructions h2 { font-size: 1.1rem; margin-bottom: 16px; color: #eee; }
+    .step {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .step-num {
+      background: #e84040;
+      color: white;
+      border-radius: 50%;
+      width: 26px; height: 26px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-text { font-size: 0.9rem; color: #ccc; line-height: 1.5; }
+    .step-text strong { color: #eee; }
+    .note {
+      background: #222;
+      border-left: 3px solid #e84040;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      color: #aaa;
+      border-radius: 0 4px 4px 0;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <a href="index.html" class="back">← Back</a>
+  <h1>Sound Replacement Mod</h1>
+
+  <div class="form-card">
+
+    <div class="field">
+      <label>Mod Type</label>
+      <select disabled>
+        <option>Ability Sound Replacement</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Your Audio File</label>
+      <div class="dropzone" id="dropzone">
+        <div class="upload-icon">↑</div>
+        <p>Click or drag to upload</p>
+        <p>Accepts .wav files</p>
+        <span class="file-name" id="file-label"></span>
+      </div>
+      <input type="file" id="file-input" accept=".wav">
+    </div>
+
+    <div class="field">
+      <label>Select Hero</label>
+      <select id="hero-select">
+        <option value="">Loading heroes...</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Select Sound</label>
+      <select id="sound-select" disabled>
+        <option value="">Select a hero first</option>
+      </select>
+    </div>
+
+    <button class="generate" id="generate-btn" disabled>Generate Mod</button>
+    <p class="status" id="status"></p>
+
+  </div>
+
+  <!-- Post-generation instructions -->
+  <div class="instructions" id="instructions">
+    <h2>✅ Your mod package is downloading!</h2>
+    <p style="color:#888; font-size:0.88rem; margin-bottom:20px;">
+      Follow these steps to finish building and installing your mod.
+      You only need to do steps 1–2 once.
+    </p>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text">
+        <strong>Install CSDK 12</strong> if you haven't already.<br>
+        Download it from <a href="https://deadlockmodding.pages.dev/modding-tools/csdk-12" target="_blank" style="color:#e84040;">deadlockmodding.pages.dev</a> and unzip it anywhere on your computer.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text">
+        <strong>Extract the ZIP</strong> you just downloaded anywhere — your Desktop is fine.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text">
+        <strong>Double-click <code>build.bat</code></strong> inside the extracted folder.<br>
+        The first time, it will ask you where CSDK 12 is installed. After that it remembers.
+        It will automatically copy your files and launch CSDK 12.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-text">
+        <strong>In CSDK 12</strong>, find your sound file in the Asset Browser, right-click it, and select <strong>Recompile → Full</strong>.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-text">
+        <strong>Pack the addon</strong> using the Workshop Manager (top bar of Asset Browser → New → Submit). Your <code>.vpk</code> file will appear in <code>game/citadel_addons/</code>.
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-text">
+        <strong>Copy the <code>.vpk</code></strong> to <code>Deadlock/game/citadel/addons/</code> and rename it <code>pak01_dir.vpk</code>. Launch the game and enjoy your mod!
+      </div>
+    </div>
+
+    <div class="note">
+      ⚠️ Windows may show a security warning when running <code>build.bat</code>. Click <strong>"More info" → "Run anyway"</strong> — this is normal for unsigned scripts.
+    </div>
+  </div>
+
+  <script>
+    // ── State ────────────────────────────────────────────
+    let soundsDb = null;
+    let uploadedFile = null;
+
+    // ── Load sounds_db.json ──────────────────────────────
+    async function loadDb() {
+      try {
+        const res = await fetch('sounds_db.json');
+        if (!res.ok) throw new Error('not found');
+        soundsDb = await res.json();
+        populateHeroes();
+      } catch (e) {
+        setStatus('Could not load sound database. Make sure sounds_db.json is in the same folder.', 'error');
+      }
+    }
+
+    function populateHeroes() {
+      const heroSelect = document.getElementById('hero-select');
+      heroSelect.innerHTML = '<option value="">— Select a hero —</option>';
+      for (const hero of soundsDb.meta.heroes) {
+        const opt = document.createElement('option');
+        opt.value = hero;
+        opt.textContent = hero.charAt(0).toUpperCase() + hero.slice(1);
+        heroSelect.appendChild(opt);
+      }
+    }
+
+    // ── Hero → sounds ────────────────────────────────────
+    document.getElementById('hero-select').addEventListener('change', function () {
+      const hero = this.value;
+      const soundSelect = document.getElementById('sound-select');
+      if (!hero) {
+        soundSelect.innerHTML = '<option value="">Select a hero first</option>';
+        soundSelect.disabled = true;
+        updateGenerateBtn();
+        return;
+      }
+      const heroSounds = soundsDb.sounds.filter(s =>
+        s.hero === hero && s.type === 'sound_file'
+      );
+      soundSelect.innerHTML = '<option value="">— Select a sound —</option>';
+      for (const sound of heroSounds) {
+        const opt = document.createElement('option');
+        opt.value = sound.path;
+        opt.textContent = sound.filename;
+        soundSelect.appendChild(opt);
+      }
+      soundSelect.disabled = false;
+      updateGenerateBtn();
+    });
+
+    document.getElementById('sound-select').addEventListener('change', updateGenerateBtn);
+
+    // ── File upload ──────────────────────────────────────
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('file-input');
+    const fileLabel = document.getElementById('file-label');
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+    function handleFile(file) {
+      if (!file.name.endsWith('.wav')) {
+        setStatus('Only .wav files are supported.', 'error');
+        return;
+      }
+      uploadedFile = file;
+      fileLabel.textContent = file.name;
+      setStatus('');
+      updateGenerateBtn();
+    }
+
+    function updateGenerateBtn() {
+      const hero = document.getElementById('hero-select').value;
+      const sound = document.getElementById('sound-select').value;
+      document.getElementById('generate-btn').disabled = !(hero && sound && uploadedFile);
+    }
+
+    // ── Generate ─────────────────────────────────────────
+    document.getElementById('generate-btn').addEventListener('click', generateMod);
+
+    async function generateMod() {
+      const soundPath = document.getElementById('sound-select').value;
+      const hero = document.getElementById('hero-select').value;
+      const addonName = `${hero}_sound_mod`;
+      if (!soundPath || !uploadedFile) return;
+
+      setStatus('Generating mod package...', '');
+
+      if (typeof JSZip === 'undefined') {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+      }
+
+      try {
+        const zip = new JSZip();
+
+        // ── 1. The user's .wav at the correct path ─────────
+        // Source file must mirror the original game path exactly,
+        // inside the addon's content folder.
+        // e.g. sounds/vo/drifter/drifter_ability_01.vsnd_c
+        //   -> content/citadel_addons/<addon>/sounds/vo/drifter/drifter_ability_01.wav
+        const wavPath = soundPath.replace('.vsnd_c', '.wav');
+        const contentPath = `content/citadel_addons/${addonName}/${wavPath}`;
+        const arrayBuffer = await uploadedFile.arrayBuffer();
+        zip.file(contentPath, arrayBuffer);
+
+        // ── 2. build.bat ───────────────────────────────────
+        // This script:
+        //   - On first run, prompts for CSDK 12 location and saves it to csdk_path.txt
+        //   - Copies the addon folder into the CSDK content directory
+        //   - Launches Deadlock_with_tools.exe
+        const buildBat = `@echo off
+title Deadlock Mod Builder
+color 0A
+echo ============================================
+echo   Deadlock Mod Tools - Build Script
+echo   Mod: ${addonName}
+echo ============================================
+echo.
+
+:: ── Load saved CSDK path, or ask for it ────────────────────
+set CONFIG_FILE=%~dp0csdk_path.txt
+
+if exist "%CONFIG_FILE%" (
+    set /p CSDK_PATH=<"%CONFIG_FILE%"
+    echo [OK] Using saved CSDK 12 path: %CSDK_PATH%
+) else (
+    echo CSDK 12 not configured yet.
+    echo.
+    echo Please enter the full path to your CSDK 12 folder.
+    echo Example: C:\\Tools\\Reduced_CSDK_12
+    echo (This is the folder that contains the "game" and "content" subfolders)
+    echo.
+    set /p CSDK_PATH=CSDK 12 path: 
+    echo %CSDK_PATH%> "%CONFIG_FILE%"
+    echo [OK] Path saved for future use.
+)
+
+echo.
+
+:: ── Validate the path ───────────────────────────────────────
+if not exist "%CSDK_PATH%\\content" (
+    echo [ERROR] Could not find a "content" folder at:
+    echo   %CSDK_PATH%
+    echo.
+    echo Please delete csdk_path.txt and run this script again
+    echo with the correct CSDK 12 path.
+    pause
+    exit /b 1
+)
+
+:: ── Copy addon files into CSDK ──────────────────────────────
+echo Copying addon files into CSDK 12...
+set ADDON_SRC=%~dp0content\\citadel_addons\\${addonName}
+set ADDON_DEST=%CSDK_PATH%\\content\\citadel_addons\\${addonName}
+
+xcopy /E /I /Y "%ADDON_SRC%" "%ADDON_DEST%" >nul
+if errorlevel 1 (
+    echo [ERROR] Failed to copy addon files.
+    pause
+    exit /b 1
+)
+echo [OK] Files copied to: %ADDON_DEST%
+echo.
+
+:: ── Launch CSDK 12 ──────────────────────────────────────────
+set TOOLS_EXE=%CSDK_PATH%\\game\\bin_tools\\win64\\Deadlock_with_tools.exe
+
+if not exist "%TOOLS_EXE%" (
+    echo [ERROR] Could not find Deadlock_with_tools.exe at:
+    echo   %TOOLS_EXE%
+    echo.
+    echo Make sure your CSDK 12 path points to the root folder
+    echo (the one containing "game" and "content" subfolders).
+    pause
+    exit /b 1
+)
+
+echo Launching CSDK 12...
+echo.
+echo ============================================
+echo   NEXT STEPS (inside CSDK 12):
+echo.
+echo   1. Select or create your addon: ${addonName}
+echo   2. In the Asset Browser, find:
+echo      ${wavPath}
+echo   3. Right-click it and select:
+echo      Recompile ^> Full
+echo   4. Open Workshop Manager (top bar)
+echo      and click New ^> Submit to pack
+echo   5. Copy the resulting .vpk to:
+echo      Deadlock/game/citadel/addons/
+echo      and rename it pak01_dir.vpk
+echo ============================================
+echo.
+pause
+
+start "" "%TOOLS_EXE%"
+`;
+
+        zip.file('build.bat', buildBat);
+
+        // ── 3. README ──────────────────────────────────────
+        const readme = `Deadlock Sound Replacement Mod
+==============================
+Generated by Deadlock Mod Tools
+Mod name:     ${addonName}
+Hero:         ${hero}
+Target sound: ${soundPath}
+Your file:    ${uploadedFile.name}
+
+HOW TO USE
+----------
+1. Install CSDK 12 from: https://deadlockmodding.pages.dev/modding-tools/csdk-12
+2. Double-click build.bat
+3. First run: enter your CSDK 12 folder path when prompted
+4. Follow the on-screen instructions to compile and pack
+
+NEED HELP?
+----------
+Deadlock Modding Discord: https://discord.gg/P2PCCtYt2B
+Full sound replacement guide: https://deadlockmodding.pages.dev/modding-guides/replacing-sounds
+`;
+        zip.file('README.txt', readme);
+
+        // ── Download ───────────────────────────────────────
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${addonName}.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        setStatus('');
+        document.getElementById('instructions').style.display = 'block';
+        document.getElementById('instructions').scrollIntoView({ behavior: 'smooth' });
+
+      } catch (e) {
+        setStatus('Error generating mod: ' + e.message, 'error');
+      }
+    }
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
+    function setStatus(msg, type) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'status' + (type ? ' ' + type : '');
+    }
+
+    loadDb();
+  </script>
+
+</body>
+</html>
