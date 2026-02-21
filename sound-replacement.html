@@ -160,10 +160,10 @@
       <div class="dropzone" id="dropzone">
         <div class="upload-icon">↑</div>
         <p>Click or drag to upload</p>
-        <p>Accepts .wav files</p>
+        <p>Accepts .wav, .mp3, .ogg, .flac, .m4a</p>
         <span class="file-name" id="file-label"></span>
       </div>
-      <input type="file" id="file-input" accept=".wav">
+      <input type="file" id="file-input" accept=".wav,.mp3,.ogg,.flac,.m4a,audio/*">
     </div>
 
     <div class="field">
@@ -312,15 +312,97 @@
     });
     fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
 
+    const SUPPORTED = ['.wav', '.mp3', '.ogg', '.flac', '.m4a'];
+
     function handleFile(file) {
-      if (!file.name.endsWith('.wav')) {
-        setStatus('Only .wav files are supported.', 'error');
+      const ext = '.' + file.name.split('.').pop().toLowerCase();
+      if (!SUPPORTED.includes(ext)) {
+        setStatus('Unsupported format. Please use .wav, .mp3, .ogg, .flac, or .m4a', 'error');
         return;
       }
-      uploadedFile = file;
-      fileLabel.textContent = file.name;
-      setStatus('');
-      updateGenerateBtn();
+
+      if (ext === '.wav') {
+        // No conversion needed
+        uploadedFile = file;
+        fileLabel.textContent = file.name;
+        setStatus('');
+        updateGenerateBtn();
+      } else {
+        // Convert to WAV using Web Audio API
+        setStatus('Converting ' + ext + ' to .wav...', '');
+        fileLabel.textContent = file.name + ' (converting...)';
+        convertToWav(file).then(wavFile => {
+          uploadedFile = wavFile;
+          const wavName = file.name.replace(/\.[^.]+$/, '.wav');
+          fileLabel.textContent = wavName + ' (converted from ' + ext + ')';
+          setStatus('');
+          updateGenerateBtn();
+        }).catch(err => {
+          setStatus('Conversion failed: ' + err.message, 'error');
+          fileLabel.textContent = '';
+          uploadedFile = null;
+          updateGenerateBtn();
+        });
+      }
+    }
+
+    async function convertToWav(file) {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const arrayBuffer = await file.arrayBuffer();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+      // Encode AudioBuffer to WAV format
+      const wavBuffer = audioBufferToWav(audioBuffer);
+      const wavName = file.name.replace(/\.[^.]+$/, '.wav');
+      return new File([wavBuffer], wavName, { type: 'audio/wav' });
+    }
+
+    // Encode an AudioBuffer as a standard PCM WAV ArrayBuffer
+    function audioBufferToWav(buffer) {
+      const numChannels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
+      const numSamples = buffer.length;
+      const bytesPerSample = 2; // 16-bit PCM
+      const dataSize = numChannels * numSamples * bytesPerSample;
+      const bufferSize = 44 + dataSize;
+
+      const arrayBuffer = new ArrayBuffer(bufferSize);
+      const view = new DataView(arrayBuffer);
+
+      // RIFF header
+      writeString(view, 0, 'RIFF');
+      view.setUint32(4, 36 + dataSize, true);
+      writeString(view, 8, 'WAVE');
+      // fmt chunk
+      writeString(view, 12, 'fmt ');
+      view.setUint32(16, 16, true);           // chunk size
+      view.setUint16(20, 1, true);            // PCM format
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * numChannels * bytesPerSample, true); // byte rate
+      view.setUint16(32, numChannels * bytesPerSample, true); // block align
+      view.setUint16(34, 16, true);           // bits per sample
+      // data chunk
+      writeString(view, 36, 'data');
+      view.setUint32(40, dataSize, true);
+
+      // Interleave channel data and write as 16-bit PCM
+      let offset = 44;
+      for (let i = 0; i < numSamples; i++) {
+        for (let ch = 0; ch < numChannels; ch++) {
+          const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
+          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+          offset += 2;
+        }
+      }
+
+      return arrayBuffer;
+    }
+
+    function writeString(view, offset, str) {
+      for (let i = 0; i < str.length; i++) {
+        view.setUint8(offset + i, str.charCodeAt(i));
+      }
     }
 
     function updateGenerateBtn() {
