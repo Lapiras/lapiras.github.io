@@ -174,9 +174,16 @@
     </div>
 
     <div class="field">
+      <label>Sound Type</label>
+      <select id="type-select" disabled>
+        <option value="">Select a hero first</option>
+      </select>
+    </div>
+
+    <div class="field">
       <label>Select Sound</label>
       <select id="sound-select" disabled>
-        <option value="">Select a hero first</option>
+        <option value="">Select a type first</option>
       </select>
     </div>
 
@@ -272,27 +279,66 @@
     }
 
     // ── Hero → sounds ────────────────────────────────────
+    // Friendly display names for categories
+    const CATEGORY_LABELS = {
+      'vo':           'Dialogue / Voice Lines',
+      'hero':         'Hero Sounds',
+      'hero_ability': 'Ability Sound Events',
+      'music':        'Music',
+      'ui':           'UI Sounds',
+      'ambient':      'Ambient',
+      'general':      'General',
+    };
+
     document.getElementById('hero-select').addEventListener('change', function () {
       const hero = this.value;
+      const typeSelect = document.getElementById('type-select');
       const soundSelect = document.getElementById('sound-select');
-      if (!hero) {
-        soundSelect.innerHTML = '<option value="">Select a hero first</option>';
-        soundSelect.disabled = true;
-        updateGenerateBtn();
-        return;
+
+      // Reset downstream dropdowns
+      typeSelect.innerHTML = '<option value="">— Select a type —</option>';
+      soundSelect.innerHTML = '<option value="">Select a type first</option>';
+      typeSelect.disabled = true;
+      soundSelect.disabled = true;
+      updateGenerateBtn();
+
+      if (!hero) return;
+
+      // Find all categories available for this hero
+      const heroSounds = soundsDb.sounds.filter(s => s.hero === hero && s.type === 'sound_file');
+      const categories = [...new Set(heroSounds.map(s => s.category).filter(Boolean))].sort();
+
+      for (const cat of categories) {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = CATEGORY_LABELS[cat] || cat;
+        typeSelect.appendChild(opt);
       }
-      const heroSounds = soundsDb.sounds.filter(s =>
-        s.hero === hero && s.type === 'sound_file'
-      );
+      typeSelect.disabled = false;
+    });
+
+    document.getElementById('type-select').addEventListener('change', function () {
+      const hero = document.getElementById('hero-select').value;
+      const category = this.value;
+      const soundSelect = document.getElementById('sound-select');
+
       soundSelect.innerHTML = '<option value="">— Select a sound —</option>';
-      for (const sound of heroSounds) {
+      soundSelect.disabled = true;
+      updateGenerateBtn();
+
+      if (!category) return;
+
+      const filtered = soundsDb.sounds.filter(s =>
+        s.hero === hero && s.type === 'sound_file' && s.category === category
+      );
+
+      for (const sound of filtered) {
         const opt = document.createElement('option');
         opt.value = sound.path;
         opt.textContent = sound.filename;
         soundSelect.appendChild(opt);
       }
       soundSelect.disabled = false;
-      updateGenerateBtn();
     });
 
     document.getElementById('sound-select').addEventListener('change', updateGenerateBtn);
