@@ -272,8 +272,14 @@
       heroSelect.innerHTML = '<option value="">— Select a hero —</option>';
       for (const hero of soundsDb.meta.heroes) {
         const opt = document.createElement('option');
-        opt.value = hero;
-        opt.textContent = hero.charAt(0).toUpperCase() + hero.slice(1);
+        // Support both old format (plain string) and new format ({codename, display_name})
+        if (typeof hero === 'string') {
+          opt.value = hero;
+          opt.textContent = hero.charAt(0).toUpperCase() + hero.slice(1);
+        } else {
+          opt.value = hero.codename;
+          opt.textContent = hero.display_name || hero.codename;
+        }
         heroSelect.appendChild(opt);
       }
     }
